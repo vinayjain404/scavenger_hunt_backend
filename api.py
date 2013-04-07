@@ -111,7 +111,7 @@ def create_game():
 
         data['status'] = SUCCESS
         cur_time = int(time.time())
-        fields = ['player1_id', 'player2_id', 'last_updated', 'turn_type']
+        fields = ['player1_id', 'player2_id', 'last_updated', 'player_turn']
         values = [p1_id, p2_id, cur_time, p1_id]
         id = insert('game', fields, values)
         data['game_id'] = id
@@ -201,7 +201,7 @@ def match_turn():
 
     move_result = 1 if result else 0
           
-    create_move(game_id, player_id, move_type, upload_image_url, label, move_result)
+    create_move(game_id, player_id, move_type, match_image_url, label, move_result)
 
     # Save next turn type as upload
     save_turn(game_id, 'U')
@@ -248,11 +248,11 @@ def update_results(game_id, loser_number):
     # update winner in the game db
     cur_time = int(time.time())
     fields = ['winner', 'last_updated']
-    values = [winner_player_id, cur_time]
+    values = [game[winner_player_id], cur_time]
     update('game', fields, values, game_id)
 
     # update winner and loser in the players table
-    player = query_db('select * from player where id=?', [winner_player_id], one=True)
+    player = query_db('select * from player where fb_id=?', [winner_player_id], one=True)
     current_games_played = player['games_played']
     current_games_won = player['games_won']
     fields = ['games_played', 'games_won']
@@ -260,7 +260,7 @@ def update_results(game_id, loser_number):
     update('player', fields, values, winner_player_id)
 
     # update loser in the players table
-    player = query_db('select * from player where id=?', [loser_player_id], one=True)
+    player = query_db('select * from player where fb_id=?', [loser_player_id], one=True)
     current_games_played = player['games_played']
     fields = ['games_played']
     values = [current_games_played+1]
@@ -275,7 +275,7 @@ def increment_player_missed_count(game_id, player_number):
     new_player_count = game[player_missed_count_field] + 1
 
     cur_time = int(time.time())
-    fields = ['player_missed_count_field', 'last_updated']
+    fields = [player_missed_count_field, 'last_updated']
     values = [new_player_count, cur_time]
     update('game', fields, values, game_id)
 
@@ -347,6 +347,7 @@ def match_image_to_turn(image, game_id):
     response = api.result(qid)
     data = response['data']
 
+    print "Data response: %s" %data
     if 'results' in data: 
         actual_labels = [result['labels'] for result in data['results']]
     else:
@@ -355,7 +356,12 @@ def match_image_to_turn(image, game_id):
     game = query_db('select * from game where id=?', [game_id], one=True)
     expected_label = game['label']
 
-    return expected_label in actual_labels
+    result = expected_label in actual_labels
+
+    print "Actual labels: %s" %actual_labels
+    print "Expected labels: %s" %actual_labels
+    print "Result for the image match is: %s" %result
+    return result
 
 def add_image_to_training_set(image, label):
     """
@@ -401,7 +407,7 @@ def create_move(game_id, player_id, move_type, upload_image_url, label, move_res
     cur_time = int(time.time())
     fields = ['game_id', 'player_id', 'move_type', 'img_url', 'label', 'result', 'time_updated']
     values = [game_id, player_id, move_type, upload_image_url, label, move_result, cur_time]
-    id = insert('moves', fields, values)
+    id = insert('move', fields, values)
     print "Added a new move: %s" %id
     return id
 

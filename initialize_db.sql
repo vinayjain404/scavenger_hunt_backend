@@ -8,8 +8,8 @@ create table game(
     iq_image_id text,
     label text unique,
     last_updated integer,
-    player1_misses integer 0,
-    player2_misses integer 0,
+    player1_misses integer default 0,
+    player2_misses integer default 0,
     winner text,
     FOREIGN KEY(player1_id) references players(fb_id),
     FOREIGN KEY(player2_id) references players(fb_id),
@@ -18,7 +18,7 @@ create table game(
 );
 
 
-create table moves(
+create table move(
   	id integer primary key autoincrement,
   	game_id integer, 
         player_id text,
@@ -34,6 +34,6 @@ create table moves(
 
 create table player(
 	fb_id text primary key,
-	games_played integer  default 0,
+	games_played integer default 0,
 	games_won integer default 0
 );
