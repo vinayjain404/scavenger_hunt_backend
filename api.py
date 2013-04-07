@@ -119,7 +119,7 @@ def list_games(player_id):
     """
     List games available for a player
     """
-    games = query_db('select * from game where player1_id=? OR player2_id=?',
+    games = query_db('select * from game where player1_id=? OR player2_id=? and img_url NOT NULL',
                 [player_id, player_id])
     data = {}
     # Hack to display images from imgur
@@ -129,69 +129,57 @@ def list_games(player_id):
     data['games'] = games
     return jsonify(data)
 
-@app.route('/game/', methods = ['POST'])
-def game():
+@app.route('/upload_turn/', methods = ['POST'])
+def upload_turn():
     """
-    Get the current state of the game for a given player and turn
-    """
-    game_id = request.form.get('game_id')
-    player_id = request.form.get('player_id')
-
-    game = query_db('select * from games where id=?',
-                [game_id])
-    data = {}
-    if not game:
-        data['status'] = FAIL
-    else:
-        data['status'] = SUCCESS
-        
-    data['game'] = game
-    return jsonify(data)
-
-@app.route('/turn/', methods = ['POST'])
-def turn():
-    """
-    Play a turn for given user
-    A turn comprises of submitting an image for matching to a given image by the
-    opponent and sending an image for the next turn
-
-    If the player is starting then he does not need to match an image instead
-    he s/ends a image for the opponent to guess
+    Play a upload turn for the user
     """
     game_id = request.form.get('game_id')
     player_id = request.form.get('player_id')
-    match_image = request.form.get('match_image') # base 64 encoded data for the image
     upload_image = request.form.get('upload_image')
     move_result = 0 #default it to false
     label = utils.create_unique_label()
 
-    match_image_url = get_image_url_from_imgur(match_image)
     upload_image_url = get_image_url_from_imgur(upload_image)
     player_number = which_player(player_id) # detect player 1 or 2
 
-    if not match_image_url:
-        # figure out if its first turn if no match image is passed
-        move_type = 'U'
-    else:
-        move_type = 'M'
-        result = match_image_to_turn(match_image, label, game_id)
-        remove_image_from_training_set(game_id)
+    move_type = 'U'
 
-        if not result:
-            count = increment_player_missed_count(game_id, player_number)
-
-        if count == settings.MAX_MISSES:
-            update_results(game_id, player_number)
-            
-        move_result = 1 if result else 0
-          
     iq_image_id = add_image_to_training_set(upload_image, label)
     update_game_with_image_upload(upload_image_url, game_id, player_id, label, iq_image_id)
     create_move(game_id, player_id, move_type, upload_image_url, label, move_result)
-    
+
     # Swap the turn for the given player
     swap_turn(game_id, player_number)
 
+@app.route('/match_turn/', methods = ['POST'])
+def match_turn():
+    """
+    Play a match turn for a given user
+    """
+    game_id = request.form.get('game_id')
+    player_id = request.form.get('player_id')
+    match_image = request.form.get('match_image') # base 64 encoded data for the image
+    move_result = 0 # default it to false
+    label = utils.create_unique_label()
+
+    match_image_url = get_image_url_from_imgur(match_image)
+    player_number = which_player(player_id) # detect player 1 or 2
+
+    move_type = 'M'
+    result = match_image_to_turn(match_image, label, game_id)
+    remove_image_from_training_set(game_id)
+
+    if not result:
+        count = increment_player_missed_count(game_id, player_number)
+
+    if count == settings.MAX_MISSES:
+        update_results(game_id, player_number)
+
+    move_result = 1 if result else 0
+          
+    create_move(game_id, player_id, move_type, upload_image_url, label, move_result)
+    
 def which_player(game_id, player_id):
     """
     Returns if player 1 or 2 is the player for the given game
