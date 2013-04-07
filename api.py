@@ -206,7 +206,8 @@ def match_turn():
     # Save next turn type as upload
     save_turn(game_id, 'U')
 
-    return jsonify({"status": SUCCESS})
+    status = SUCCESS if result else FAIL
+    return jsonify({"status": status})
 
 def save_turn(game_id, move_type):
     """
@@ -330,38 +331,56 @@ def match_image_to_turn(image, game_id):
     Match the image to the given image in the games last played image section
     returns True or False
     """
-    api = Api(settings.IQE_KEY, settings.IQE_SECRET)
+    try:
+        api = Api(settings.IQE_KEY, settings.IQE_SECRET)
 
-    filename = "/tmp/%s" %utils.create_unique_label()
-    file = open(filename, "w")
+        filename = "/tmp/%s" %utils.create_unique_label()
+        file = open(filename, "w")
 
-    file.write(image.decode('base64'))
-    file.close()
+        file.write(image.decode('base64'))
+        file.close()
 
-    response, qid = api.query(filename)
-    
-    # update method
-    result = api.update()
-    
-    # result method
-    response = api.result(qid)
-    data = response['data']
+        response, qid = api.query(filename)
 
-    print "Data response: %s" %data
-    if 'results' in data: 
-        actual_labels = [result['labels'] for result in data['results']]
-    else:
+        game = query_db('select * from game where id=?', [game_id], one=True)
+        expected_label = game['label']
+
+        # update method
+        result = api.update()
+
+        if "results" in data:
+            if isinstance(data['results'], list):
+                actual_labels = [result['labels'] for result in data['results']]
+                result = expected_label in actual_labels
+            else:
+                actual_labels = data['results']['labels']
+                result = expected_label == actual_labels
+        else:
+            return False
+
+        # result method
+        response = api.result(qid)
+        data = response['data']
+
+        print "Data response: %s" %response
+
+        if "results" in data:
+            if isinstance(data['results'], list):
+                actual_labels = [result['labels'] for result in data['results']]
+                result = expected_label in actual_labels
+            else:
+                actual_labels = data['results']['labels']
+                result = expected_label == actual_labels
+        else:
+            return False
+
+        print "Actual labels: %s" %actual_labels
+        print "Expected labels: %s" %expected_label
+        print "Result for the image match is: %s" %result
+        return result
+    except Exception as ex:
+        print "Match raised ane exception: %s" %str(ex)
         return False
-    
-    game = query_db('select * from game where id=?', [game_id], one=True)
-    expected_label = game['label']
-
-    result = expected_label in actual_labels
-
-    print "Actual labels: %s" %actual_labels
-    print "Expected labels: %s" %actual_labels
-    print "Result for the image match is: %s" %result
-    return result
 
 def add_image_to_training_set(image, label):
     """
@@ -376,6 +395,7 @@ def add_image_to_training_set(image, label):
     file.close()
 
     response = api.objects.create(name=label, images=[filename])
+    print "Add image to training set response: %s" %response
     obj_id = response['obj_id']
     return obj_id 
 
