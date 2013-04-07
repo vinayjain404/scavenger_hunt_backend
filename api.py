@@ -5,6 +5,7 @@ from flask import Flask, request, session, g, redirect, url_for, \
 	abort, render_template, flash, json, jsonify
 
 import settings
+import utils
 
 # configuration
 DATABASE = settings.DB_NAME
@@ -99,17 +100,17 @@ def play_turn():
     he sends a image for the opponent to guess
     """
     game_id = request.form.get('game_id')
-    label = request.form.get('label')
     player_id = request.form.get('player_id')
     match_image_url = request.form.get('match_image_url')
     upload_image_url = request.form.get('upload_image_url')
     move_result = 0 #default it to false
 
+    label = utils.create_unique_label()
     if not match_image_url:
         move_type = 'U'
         # figure out if its first turn if no match image is passed
         add_image_to_training_set(upload_image_url)
-        update_game_with_image_upload(upload_image_url, game_id, player_id)
+        update_game_with_image_upload(upload_image_url, game_id, player_id, label)
     else:
         move_type = 'M'
         result = match_image_to_turn(match_image_url, game_id)
@@ -118,7 +119,7 @@ def play_turn():
             increment_player_missed_count(player_id)
         move_result = 1 if result else 0
         add_image_to_training_set(upload_image_url)
-        update_game_with_image_upload(upload_image_url, game_id, player_id)
+        update_game_with_image_upload(upload_image_url, game_id, player_id, label)
 
     create_move(game_id, player_id, move_type, upload_image_url, label, move_result)
     
