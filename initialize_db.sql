@@ -7,7 +7,7 @@ create table game(
     img_url text,
     iq_image_id text,
     label text unique,
-    last_activity datetime,
+    last_updated integer,
     player1_misses integer,
     player2_misses integer,
     winner text,

@@ -7,6 +7,7 @@ from flask import Flask, request, session, g, redirect, url_for, \
 
 from pyiqe import Api
 import settings
+import time
 import urllib
 import urllib2
 import utils
@@ -107,8 +108,8 @@ def create_game():
         replace('player', ['fb_id'], [p2_id])
 
         data['status'] = SUCCESS
-        cur_time = datetime.now()
-        fields = ['player1_id', 'player2_id', 'last_activity']
+        cur_time = int(time.time())
+        fields = ['player1_id', 'player2_id', 'last_updated']
         values = [p1_id, p2_id, cur_time]
         id = insert('game', fields, values)
         data['game_id'] = id
@@ -127,6 +128,20 @@ def list_games(player_id):
         game['img_url'] = 'http://i.imgur.com/HVFGQ.png'
 
     data['games'] = games
+    data['timestamp'] = int(time.time())
+    return jsonify(data)
+
+@app.route('/updated_games/<player_id>/<timestamp>')
+def updated_games(player_id, timestamp):
+    """
+    List games available for a player
+    """
+    games = query_db('select * from game where player1_id=? OR player2_id=? and img_url NOT NULL and last_updated > ?',
+                [player_id, player_id, timestamp])
+    data = {}
+
+    data['games'] = games
+    data['timestamp'] = int(time.time())
     return jsonify(data)
 
 @app.route('/upload_turn/', methods = ['POST'])
@@ -190,9 +205,9 @@ def save_turn(game_id, move_type):
     """
     Saves the current turn type for a given game id and turn type
     """
-    cur_time = datetime.now()
-    fields = ['turn_type']
-    values = [move_type]
+    cur_time = int(time.time())
+    fields = ['turn_type', 'last_updated']
+    values = [move_type, cur_time]
     update('game', fields, values, game_id)
     
 def which_player(game_id, player_id):
@@ -224,9 +239,9 @@ def update_results(game_id, loser_number):
     winner_player_id = 'player%d_id' %winner_player
     
     # update winner in the game db
-    cur_time = datetime.now()
-    fields = ['winner']
-    values = [winner_player_id]
+    cur_time = int(time.time())
+    fields = ['winner', 'last_updated']
+    values = [winner_player_id, cur_time]
     update('game', fields, values, game_id)
 
     # update winner and loser in the players table
@@ -252,9 +267,9 @@ def increment_player_missed_count(game_id, player_number):
     player_missed_count_field = 'player%d_misses' %player_number
     new_player_count = game[player_missed_count_field] + 1
 
-    cur_time = datetime.now()
-    fields = ['player_missed_count_field']
-    values = [new_player_count]
+    cur_time = int(time.time())
+    fields = ['player_missed_count_field', 'last_updated']
+    values = [new_player_count, cur_time]
     update('game', fields, values, game_id)
 
     return new_player_count
@@ -290,9 +305,9 @@ def swap_turn(game_id, player_number):
         
     next_turn_player_id = 'player%d_id' %next_turn_player_number 
 
-    cur_time = datetime.now()
-    fields = ['player_turn']
-    values = [next_turn_player_id]
+    cur_time = int(time.time())
+    fields = ['player_turn', 'last_updated']
+    values = [next_turn_player_id, cur_time]
     update('game', fields, values, game_id)
     
 def match_image_to_turn(image, game_id):
@@ -359,8 +374,8 @@ def update_game_with_image_upload(image_url, game_id, player_id, label, iq_image
     """
     Update the game db with image url, label and flip the active player turn
     """
-    cur_time = datetime.now()
-    fields = ['img_url', 'label', 'last_activity', 'iq_image_id']
+    cur_time = int(time.time())
+    fields = ['img_url', 'label', 'last_updated', 'iq_image_id']
     values = [image_url, label, cur_time, iq_image_id]
     update('game', fields, values, game_id)
 
@@ -368,7 +383,7 @@ def create_move(game_id, player_id, move_type, upload_image_url, label):
     """
     Add the current move to the move db
     """
-    cur_time = datetime.now()
+    cur_time = int(time.time())
     fields = ['game_id', 'player_id', 'move_type', 'img_url', 'label', 'time_updated']
     values = [game_id, played_id, move_type, upload_image_url, label, cur_time]
     id = insert('move', fields, values)
