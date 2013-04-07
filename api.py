@@ -34,7 +34,7 @@ def query_db(query, args=(), one=False):
                for idx, value in enumerate(row)) for row in cur.fetchall()]
     return (rv[0] if rv else None) if one else rv
 
-def replace(table, fields=(), values=()):
+def replace(table, fields, values):
     # g.db is the database connection
     cur = g.db.cursor()
     query = 'REPLACE INTO %s (%s) VALUES (%s)' % (
@@ -42,8 +42,39 @@ def replace(table, fields=(), values=()):
         ', '.join(fields),
         ', '.join(['?'] * len(values))
     )
+    print "Executing query: %s, values: %s" %(query, values)
     cur.execute(query, values)
     g.db.commit()
+
+    cur.close()
+
+def update(table, fields, values, id):
+    # g.db is the database connection
+    cur = g.db.cursor()
+    query = 'UPDATE INTO %s (%s) VALUES (%s) WHERE id=?' % (
+        table,
+        ', '.join(fields),
+        ', '.join(['?'] * len(values))
+    )
+    print "Executing query: %s, values: %s and id: %s" %(query, values, id)
+    values.append(id)
+    cur.execute(query, values)
+    g.db.commit()
+
+    cur.close()
+
+def insert(table, fields, values):
+    # g.db is the database connection
+    cur = g.db.cursor()
+    query = 'INSERT INTO %s (%s) VALUES (%s)' % (
+        table,
+        ', '.join(fields),
+        ', '.join(['?'] * len(values))
+    )
+    print "Executing query: %s, values: %s" %(query, values)
+    cur.execute(query, values)
+    g.db.commit()
+
     id = cur.lastrowid
     cur.close()
     return id
@@ -68,13 +99,13 @@ def create_game():
     if not p1_id or not p2_id:
         data['status'] = FAIL
     else:
-        replace('player', ('fb_id'), (p1_id))
-        replace('player', ('fb_id'), (p2_id))
+        replace('player', ['fb_id'], [p1_id])
+        replace('player', ['fb_id'], [p2_id])
 
         data['status'] = SUCCESS
-        fields = ('player1_id', 'player2_id')
-        values = (p1_id, p2_id)
-        id = replace('game', fields, values)
+        fields = ['player1_id', 'player2_id']
+        values = [p1_id, p2_id]
+        id = insert('game', fields, values)
         data['game_id'] = id
     return jsonify(data=data)
 
@@ -152,14 +183,10 @@ def update_game_with_image_upload(image_url, game_id, player_id, label):
     """
     Update the game db with image url, label and flip the active player turn
     """
-    g.db.execute('update game set img_url = ?, label = ? where id = ?',
-		[
-            image_url,
-            label,
-            game_id
-        ])
-    g.db.commit()
-    return g.db.lastrowid
+    query = 'update game set img_url = ?, label = ? where id = ?'
+    fields = ['img_url', 'label']
+    values = [image_url, label]
+    update('game', fields, values, game_id)
 
 def match_image_to_turn(image_url):
     """
