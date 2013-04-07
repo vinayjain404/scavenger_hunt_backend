@@ -7,6 +7,8 @@ from flask import Flask, request, session, g, redirect, url_for, \
 
 from pyiqe import Api
 import settings
+import urllib
+import urllib2
 import utils
 
 # configuration
@@ -256,9 +258,21 @@ def increment_player_missed_count(game_id, player_number):
 
 def get_image_url_from_imgur(base64_image):
     """
-    Upload a base64 image to imgur
+    Upload a base64 image to imgur and return a link
     """
-    pass
+    headers = {'authorization': 'Client-ID %s' %settings.IMGUR_CLIENT_ID}
+    params = {}
+    params['image'] = base64_image
+    params_encoded = urllib.urlencode(params)
+    url = settings.IMGUR_URL
+    request_object = urllib2.Request(url, params_encoded, headers)
+    response = urllib2.urlopen(request_object)
+    resp = response.read()
+    data = json.loads(resp)
+    if data['status'] != 200:
+        return None
+    else:
+        return data['data']['link']
 
 def swap_turn(game_id, player_number):
     """
