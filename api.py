@@ -151,6 +151,7 @@ def upload_turn():
     """
     Play a upload turn for the user
     """
+    print "Json response: %s" %request.data
     data = json.loads(request.data)
     game_id = data['game_id']
     player_id = data['player_id']
@@ -181,9 +182,11 @@ def match_turn():
     """
     Play a match turn for a given user
     """
-    game_id = request.form.get('game_id')
-    player_id = request.form.get('player_id')
-    match_image = request.form.get('match_image') # base 64 encoded data for the image
+    print "JSON response: %s" %request.data
+    data = json.loads(request.data)
+    game_id = data['game_id']
+    player_id = data['player_id']
+    match_image = data['match_image'] # base 64 encoded data for the image
     move_result = 0 # default it to false
     label = utils.create_unique_label()
 
