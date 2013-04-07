@@ -1,4 +1,5 @@
 # python imports
+from datetime import datetime
 import os
 import sqlite3
 from flask import Flask, request, session, g, redirect, url_for, \
@@ -103,8 +104,9 @@ def create_game():
         replace('player', ['fb_id'], [p2_id])
 
         data['status'] = SUCCESS
-        fields = ['player1_id', 'player2_id']
-        values = [p1_id, p2_id]
+        cur_time = datetime.now()
+        fields = ['player1_id', 'player2_id', 'last_activity']
+        values = [p1_id, p2_id, cur_time]
         id = insert('game', fields, values)
         data['game_id'] = id
     return jsonify(data=data)
@@ -181,9 +183,9 @@ def update_game_with_image_upload(image_url, game_id, player_id, label):
     """
     Update the game db with image url, label and flip the active player turn
     """
-    query = 'update game set img_url = ?, label = ? where id = ?'
-    fields = ['img_url', 'label']
-    values = [image_url, label]
+    cur_time = datetime.now()
+    fields = ['img_url', 'label', 'last_activity']
+    values = [image_url, label, cur_time]
     update('game', fields, values, game_id)
 
 def match_image_to_turn(image_url):
