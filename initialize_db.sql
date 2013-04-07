@@ -2,7 +2,8 @@ create table game(
     id integer primary key autoincrement,
     player1_id text,
     player2_id text,
-    player_turn text
+    player_turn text,
+    turn_type text default 'M',
     img_url text,
     iq_image_id text,
     label text unique,
