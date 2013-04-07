@@ -343,6 +343,7 @@ def match_image_to_turn(image, game_id):
     file.close()
 
     response, qid = api.query(filename, device_id=label)
+    print "Object created with response: %s and qid: %s" %(response, qid)
 
     game = query_db('select * from game where id=?', [game_id], one=True)
     expected_label = game['label']
@@ -350,26 +351,25 @@ def match_image_to_turn(image, game_id):
     try:
         # update method
         result = api.update(device_id=label)
+
+        data = result['data']
+        if "results" in data:
+            print data['results']
+            if isinstance(data['results'], list):
+                actual_labels = [result['qid_data']['labels'] for result in data['results']]
+                result = expected_label in actual_labels
+            else:
+                actual_labels = data['results']['qid_data']['labels']
+                result = expected_label == actual_labels
+            print "Actual labels: %s" %actual_labels
+            print "Expected labels: %s" %expected_label
+            print "Result for the image match is: %s" %result
+            if result:
+                return result
     except Exception as ex:
         print "Match raised ane exception"
         import traceback
         traceback.print_exc()
-        return False
-
-    data = result['data']
-    if "results" in data:
-        print data['results']
-        if isinstance(data['results'], list):
-            actual_labels = [result['qid_data']['labels'] for result in data['results']]
-            result = expected_label in actual_labels
-        else:
-            actual_labels = data['results']['qid_data']['labels']
-            result = expected_label == actual_labels
-        print "Actual labels: %s" %actual_labels
-        print "Expected labels: %s" %expected_label
-        print "Result for the image match is: %s" %result
-        if result:
-            return result
 
     # result method
     response = api.result(qid)
