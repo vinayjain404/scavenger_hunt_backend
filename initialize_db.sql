@@ -16,7 +16,7 @@ create table game(
 
 
 create table moves(
-  	id integer primary key,
+  	id integer primary key autoincrement,
   	game_id integer, 
         player_id text,
   	move_type text default 'upload',
