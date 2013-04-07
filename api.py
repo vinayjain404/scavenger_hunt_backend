@@ -151,9 +151,10 @@ def upload_turn():
     """
     Play a upload turn for the user
     """
-    game_id = request.form.get('game_id')
-    player_id = request.form.get('player_id')
-    upload_image = request.form.get('upload_image')
+    data = json.loads(request.data)
+    game_id = data['game_id']
+    player_id = data['player_id']
+    upload_image = data['upload_image']
     move_result = 0 # default it to false
     label = utils.create_unique_label()
 
@@ -379,7 +380,9 @@ def match_image_to_turn(image, game_id):
         print "Result for the image match is: %s" %result
         return result
     except Exception as ex:
-        print "Match raised ane exception: %s" %str(ex)
+        print "Match raised ane exception"
+        import traceback
+        traceback.print_exc()
         return False
 
 def add_image_to_training_set(image, label):
