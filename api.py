@@ -122,7 +122,7 @@ def list_games(player_id):
     """
     List games available for a player
     """
-    games = query_db('select * from game where player1_id=? OR player2_id=? and img_url not NULL',
+    games = query_db('select * from game where player1_id=? OR player2_id=? and (img_url not NULL OR img_url != (null)',
                 [player_id, player_id])
     data = {}
 
