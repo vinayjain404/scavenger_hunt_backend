@@ -110,8 +110,8 @@ def create_game():
 
         data['status'] = SUCCESS
         cur_time = int(time.time())
-        fields = ['player1_id', 'player2_id', 'last_updated']
-        values = [p1_id, p2_id, cur_time]
+        fields = ['player1_id', 'player2_id', 'last_updated', 'turn_type']
+        values = [p1_id, p2_id, cur_time, p1_id]
         id = insert('game', fields, values)
         data['game_id'] = id
     return jsonify(data=data)

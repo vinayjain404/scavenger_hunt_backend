@@ -3,7 +3,7 @@ create table game(
     player1_id text,
     player2_id text,
     player_turn text,
-    turn_type text default 'M',
+    turn_type text default 'U',
     img_url text,
     iq_image_id text,
     label text unique,
