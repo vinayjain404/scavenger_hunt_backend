@@ -5,6 +5,7 @@ import sqlite3
 from flask import Flask, request, session, g, redirect, url_for, \
 	abort, render_template, flash, json, jsonify
 
+from pyiqe import Api
 import settings
 import utils
 
@@ -119,11 +120,15 @@ def list_games(player_id):
     games = query_db('select * from game where player1_id=? OR player2_id=?',
                 [player_id, player_id])
     data = {}
+    # Hack to display images from imgur
+    for game in games:
+        game['img_url'] = 'http://i.imgur.com/HVFGQ.png'
+
     data['games'] = games
     return jsonify(data)
 
-@app.route('/play_game/', methods = ['POST'])
-def play_game():
+@app.route('/game/', methods = ['POST'])
+def game():
     """
     Get the current state of the game for a given player and turn
     """
@@ -131,7 +136,7 @@ def play_game():
     player_id = request.form.get('player_id')
 
     game = query_db('select * from games where id=?',
-                [game])
+                [game_id])
     data = {}
     if not game:
         data['status'] = FAIL
@@ -141,15 +146,15 @@ def play_game():
     data['game'] = game
     return jsonify(data)
 
-@app.route('/play_turn/', methods = ['POST'])
-def play_turn():
+@app.route('/turn/', methods = ['POST'])
+def turn():
     """
     Play a turn for given user
     A turn comprises of submitting an image for matching to a given image by the
     opponent and sending an image for the next turn
 
     If the player is starting then he does not need to match an image instead
-    he sends a image for the opponent to guess
+    he s/ends a image for the opponent to guess
     """
     game_id = request.form.get('game_id')
     player_id = request.form.get('player_id')
@@ -159,25 +164,81 @@ def play_turn():
     label = utils.create_unique_label()
 
     match_image_url = get_image_url_from_imgur(match_image)
-    upload_image_url = get_image_url_from_imgur(upload_image_url)
+    upload_image_url = get_image_url_from_imgur(upload_image)
+    player_number = which_player(player_id) # detect player 1 or 2
 
     if not match_image_url:
         # figure out if its first turn if no match image is passed
         move_type = 'U'
     else:
         move_type = 'M'
-        result = match_image_to_turn(match_image_url, game_id)
+        result = match_image_to_turn(match_image, label, game_id)
         remove_image_from_training_set(game_id)
-        if not result:
-            increment_player_missed_count(player_id)
-        move_result = 1 if result else 0
 
-    add_image_to_training_set(upload_image_url)
-    update_game_with_image_upload(upload_image_url, game_id, player_id, label)
+        if not result:
+            count = increment_player_missed_count(game_id, player_number)
+
+        if count == settings.MAX_MISSES:
+            update_results(game_id, player_number)
+            
+        move_result = 1 if result else 0
+         
+          
+    iq_image_id = add_image_to_training_set(upload_image, label)
+    update_game_with_image_upload(upload_image_url, game_id, player_id, label, iq_image_id)
     create_move(game_id, player_id, move_type, upload_image_url, label, move_result)
     
     # Swap the turn for the given player
-    swap_turn(game_id, player_id)
+    swap_turn(game_id, player_number)
+
+def which_player(game_id, player_id):
+    """
+    Returns if player 1 or 2 is the player for the given game
+    """
+    game = query_db('select * from games where id=?', [game_id])
+
+    if game['player1_id'] == player_id:
+        return 1
+    elif game['player2_id'] == player_id:
+        return 2
+    else:
+        print "Player: %s is not a valid player for game: %s" %(player_id, game_id)
+        return None
+
+def update_results(game_id, player_number):
+    """
+    Update the winner of the game
+    The winner is decided when one of the player gets MAX_MISSES and he loses.
+    """
+    if player_number == 1:
+        winner_player = 2
+    else:
+        winner_player = 1
+
+    game = query_db('select * from games where id=?', [game_id])
+    loses_player_id = 'player%d_id' %player_number
+    winner_player_id = 'player%d_id' %winner_player
+    
+    cur_time = datetime.now()
+    fields = ['winner']
+    values = [winner_player_id]
+    update('game', fields, values, game_id)
+
+    # update winner and loser in the players table
+def increment_player_missed_count(game_id, player_number):
+    """
+    Increment player missed count
+    """
+    game = query_db('select * from games where id=?', [game_id])
+    player_missed_count_field = 'player%d_misses' %player_number
+    new_player_count = game[player_missed_count_field] + 1
+
+    cur_time = datetime.now()
+    fields = ['player_missed_count_field']
+    values = [new_player_count]
+    update('game', fields, values, game_id)
+
+    return new_player_count
 
 def get_image_url_from_imgur(base64_image):
     """
@@ -185,51 +246,105 @@ def get_image_url_from_imgur(base64_image):
     """
     pass
 
-def swap_turn(game_id, player_id):
+def swap_turn(game_id, player_number):
     """
     Swap the player turn for the given game
     """
-    pass
+    game = query_db('select * from games where id=?', [game_id])
 
-def match_image_to_turn(image_url):
+    if player_number == 1:
+        next_turn_player_number = 2
+    else:
+        next_turn_player_number = 1
+        
+    next_turn_player_id = 'player%d_id' %next_turn_player_number 
+
+    cur_time = datetime.now()
+    fields = ['player_turn']
+    values = [next_turn_player_id]
+    update('game', fields, values, game_id)
+    
+def match_image_to_turn(image, game_id):
     """
     Match the image to the given image in the games last played image section
     returns True or False
     """
-    return True
+    api = Api(settings.IQE_KEY, settings.IQE_SECRET)
 
-def add_image_to_training_set(image_url):
+    filename = "/tmp/%s" %utils.create_unique_label()
+    file = open(filename, "w")
+
+    # TODO (vinayjain) Decode the base64 image into binary
+    file.write(image)
+    file.close()
+
+    response, qid = self.api.query(filename)
+    
+    # update method
+    result = self.api.update()
+    
+    # result method
+    response = self.api.result(qid)
+    data = response['data']
+
+    if 'results' in data: 
+        actual_labels = [result['labels'] for result in data['results']]
+    else:
+        return False
+    
+    game = query_db('select * from games where id=?', [game_id])
+    expected_label = game['label']
+
+    return expected_label in actual_labels
+
+def add_image_to_training_set(image, label):
     """
     Add an image to the IQ engines training set
     """
-    pass
- 
+    api = Api(settings.IQE_KEY, settings.IQE_SECRET)
+    
+    filename = "/tmp/%s" %label
+    file = open(filename, "w")
+
+    # TODO (vinayjain) Decode the base64 image into binary
+    file.write(image)
+    file.close()
+
+    response = api.objects.create(name=label, images=[filename])
+    obj_id = response['obj_id']
+    return obj_id 
+
 def remove_image_from_training_set(game_id):
     """
-    TODO (vinayjain) This can be V2
     Remove the image from the training set via Iqengines API
     """
-    pass
+    api = Api(settings.IQE_KEY, settings.IQE_SECRET)
 
-def update_game_with_image_upload(image_url, game_id, player_id, label):
+    game = query_db('select * from games where id=?',
+                [game_id])
+    id = game['iq_image_id ']
+    response = api.objects.delete(id)
+    print "Deleting training set image with id: %s and response: %s" %(id, response)
+
+def update_game_with_image_upload(image_url, game_id, player_id, label, iq_image_id):
     """
     Update the game db with image url, label and flip the active player turn
     """
     cur_time = datetime.now()
-    fields = ['img_url', 'label', 'last_activity']
-    values = [image_url, label, cur_time]
+    fields = ['img_url', 'label', 'last_activity', 'iq_image_id']
+    values = [image_url, label, cur_time, iq_image_id]
     update('game', fields, values, game_id)
 
 def create_move(game_id, player_id, move_type, upload_image_url, label):
     """
     Add the current move to the move db
     """
-    g.db.execute('insert into move (game_id, player_id, move_type, img_url, label) \
-        values (?, ?, ?, ?, ?)', [game_id, played_id, move_type, upload_image_url, label])
-    g.db.commit()
-    print "Added a new move: %s" %g.db.lastrowid
-    return g.db.lastrowid
-    
+    fields = ['game_id', 'player_id', 'move_type', 'img_url', 'label']
+    values = [game_id, played_id, move_type, upload_image_url, label]
+    id = insert('move', fields, values)
+    print "Added a new move: %s" %id
+    return id
+
 if __name__ == '__main__':
 	init_db()
 	app.run(debug=DEBUG, host='0.0.0.0', port=9000)

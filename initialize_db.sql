@@ -4,6 +4,7 @@ create table game(
     player2_id text,
     player_turn text
     img_url text,
+    iq_image_id text,
     label text unique,
     last_activity datetime,
     player1_misses integer,
