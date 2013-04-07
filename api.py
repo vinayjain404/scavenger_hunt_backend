@@ -137,7 +137,7 @@ def upload_turn():
     game_id = request.form.get('game_id')
     player_id = request.form.get('player_id')
     upload_image = request.form.get('upload_image')
-    move_result = 0 #default it to false
+    move_result = 0 # default it to false
     label = utils.create_unique_label()
 
     upload_image_url = get_image_url_from_imgur(upload_image)
@@ -151,6 +151,9 @@ def upload_turn():
 
     # Swap the turn for the given player
     swap_turn(game_id, player_number)
+
+    # Save match as the next turn type
+    save_turn(game_id, 'M')
 
 @app.route('/match_turn/', methods = ['POST'])
 def match_turn():
@@ -179,6 +182,18 @@ def match_turn():
     move_result = 1 if result else 0
           
     create_move(game_id, player_id, move_type, upload_image_url, label, move_result)
+
+    # Save next turn type as upload
+    save_turn(game_id, 'U')
+
+def save_turn(game_id, move_type):
+    """
+    Saves the current turn type for a given game id and turn type
+    """
+    cur_time = datetime.now()
+    fields = ['turn_type']
+    values = [move_type]
+    update('game', fields, values, game_id)
     
 def which_player(game_id, player_id):
     """
