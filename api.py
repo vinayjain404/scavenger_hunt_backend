@@ -153,11 +153,14 @@ def play_turn():
     """
     game_id = request.form.get('game_id')
     player_id = request.form.get('player_id')
-    match_image_url = request.form.get('match_image_url')
-    upload_image_url = request.form.get('upload_image_url')
+    match_image = request.form.get('match_image') # base 64 encoded data for the image
+    upload_image = request.form.get('upload_image')
     move_result = 0 #default it to false
-
     label = utils.create_unique_label()
+
+    match_image_url = get_image_url_from_imgur(match_image)
+    upload_image_url = get_image_url_from_imgur(upload_image_url)
+
     if not match_image_url:
         # figure out if its first turn if no match image is passed
         move_type = 'U'
@@ -173,20 +176,20 @@ def play_turn():
     update_game_with_image_upload(upload_image_url, game_id, player_id, label)
     create_move(game_id, player_id, move_type, upload_image_url, label, move_result)
     
-def remove_image_from_training_set(game_id):
+    # Swap the turn for the given player
+    swap_turn(game_id, player_id)
+
+def get_image_url_from_imgur(base64_image):
     """
-    Remove the image from the training set via Iqengines API
+    Upload a base64 image to imgur
     """
     pass
 
-def update_game_with_image_upload(image_url, game_id, player_id, label):
+def swap_turn(game_id, player_id):
     """
-    Update the game db with image url, label and flip the active player turn
+    Swap the player turn for the given game
     """
-    cur_time = datetime.now()
-    fields = ['img_url', 'label', 'last_activity']
-    values = [image_url, label, cur_time]
-    update('game', fields, values, game_id)
+    pass
 
 def match_image_to_turn(image_url):
     """
@@ -201,6 +204,22 @@ def add_image_to_training_set(image_url):
     """
     pass
  
+def remove_image_from_training_set(game_id):
+    """
+    TODO (vinayjain) This can be V2
+    Remove the image from the training set via Iqengines API
+    """
+    pass
+
+def update_game_with_image_upload(image_url, game_id, player_id, label):
+    """
+    Update the game db with image url, label and flip the active player turn
+    """
+    cur_time = datetime.now()
+    fields = ['img_url', 'label', 'last_activity']
+    values = [image_url, label, cur_time]
+    update('game', fields, values, game_id)
+
 def create_move(game_id, player_id, move_type, upload_image_url, label):
     """
     Add the current move to the move db
