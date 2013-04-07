@@ -125,9 +125,6 @@ def list_games(player_id):
     games = query_db('select * from game where player1_id=? OR player2_id=? and img_url NOT NULL',
                 [player_id, player_id])
     data = {}
-    # Hack to display images from imgur
-    for game in games:
-        game['img_url'] = 'http://i.imgur.com/HVFGQ.png'
 
     data['games'] = games
     data['timestamp'] = int(time.time())
@@ -191,6 +188,7 @@ def match_turn():
     label = utils.create_unique_label()
 
     match_image_url = get_image_url_from_imgur(match_image)
+    print "Imgur upload link: %s" %match_image_url
     player_number = which_player(game_id, player_id) # detect player 1 or 2
 
     move_type = 'M'
@@ -335,58 +333,64 @@ def match_image_to_turn(image, game_id):
     Match the image to the given image in the games last played image section
     returns True or False
     """
+    api = Api(settings.IQE_KEY, settings.IQE_SECRET)
+
+    label = utils.create_unique_label()
+    filename = "/tmp/%s" %label
+    file = open(filename, "w")
+
+    file.write(image.decode('base64'))
+    file.close()
+
+    response, qid = api.query(filename, device_id=label)
+
+    game = query_db('select * from game where id=?', [game_id], one=True)
+    expected_label = game['label']
+
     try:
-        api = Api(settings.IQE_KEY, settings.IQE_SECRET)
-
-        filename = "/tmp/%s" %utils.create_unique_label()
-        file = open(filename, "w")
-
-        file.write(image.decode('base64'))
-        file.close()
-
-        response, qid = api.query(filename)
-
-        game = query_db('select * from game where id=?', [game_id], one=True)
-        expected_label = game['label']
-
         # update method
-        result = api.update()
-
-        if "results" in data:
-            if isinstance(data['results'], list):
-                actual_labels = [result['labels'] for result in data['results']]
-                result = expected_label in actual_labels
-            else:
-                actual_labels = data['results']['labels']
-                result = expected_label == actual_labels
-        else:
-            return False
-
-        # result method
-        response = api.result(qid)
-        data = response['data']
-
-        print "Data response: %s" %response
-
-        if "results" in data:
-            if isinstance(data['results'], list):
-                actual_labels = [result['labels'] for result in data['results']]
-                result = expected_label in actual_labels
-            else:
-                actual_labels = data['results']['labels']
-                result = expected_label == actual_labels
-        else:
-            return False
-
-        print "Actual labels: %s" %actual_labels
-        print "Expected labels: %s" %expected_label
-        print "Result for the image match is: %s" %result
-        return result
+        result = api.update(device_id=label)
     except Exception as ex:
         print "Match raised ane exception"
         import traceback
         traceback.print_exc()
         return False
+
+    if "results" in data:
+        if isinstance(data['results'], list):
+            actual_labels = [result['labels'] for result in data['results']]
+            result = expected_label in actual_labels
+        else:
+            actual_labels = data['results']['labels']
+            result = expected_label == actual_labels
+        print "Actual labels: %s" %actual_labels
+        print "Expected labels: %s" %expected_label
+        print "Result for the image match is: %s" %result
+        return result
+    else:
+        return False
+
+    # result method
+    response = api.result(qid)
+    data = response['data']
+
+    print "Data response: %s" %response
+
+    if "results" in data:
+        if isinstance(data['results'], list):
+            actual_labels = [result['labels'] for result in data['results']]
+            result = expected_label in actual_labels
+        else:
+            actual_labels = data['results']['labels']
+            result = expected_label == actual_labels
+        print "Actual labels: %s" %actual_labels
+        print "Expected labels: %s" %expected_label
+        print "Result for the image match is: %s" %result
+        return result
+    else:
+        return False
+
+
 
 def add_image_to_training_set(image, label):
     """
