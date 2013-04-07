@@ -28,7 +28,7 @@ create table moves(
 );
 	
 
-create table players(
+create table player(
 	fb_id text primary key,
 	games_played integer  default 0,
 	games_won integer default 0

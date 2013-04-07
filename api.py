@@ -14,6 +14,7 @@ app = Flask(__name__)
 app.config.from_object(__name__)
 
 DB_FILE_PATH = os.path.join(os.getcwd(), app.config['DATABASE'])
+DEBUG = True
 FAIL = 'fail'
 SUCCESS = 'ok'
 
@@ -33,6 +34,20 @@ def query_db(query, args=(), one=False):
                for idx, value in enumerate(row)) for row in cur.fetchall()]
     return (rv[0] if rv else None) if one else rv
 
+def replace(table, fields=(), values=()):
+    # g.db is the database connection
+    cur = g.db.cursor()
+    query = 'REPLACE INTO %s (%s) VALUES (%s)' % (
+        table,
+        ', '.join(fields),
+        ', '.join(['?'] * len(values))
+    )
+    cur.execute(query, values)
+    g.db.commit()
+    id = cur.lastrowid
+    cur.close()
+    return id
+
 @app.before_request
 def before_request():
     g.db = connect_db()
@@ -47,25 +62,29 @@ def create_game():
     API endpoint to create a new game.
     """
     data = {}
-    p1_id = request.form.get('p1_id')
-    p2_id = request.form.get('p2_id')
+    p1_id = request.form.get('player1_id')
+    p2_id = request.form.get('player2_id')
+
     if not p1_id or not p2_id:
         data['status'] = FAIL
     else:
+        replace('player', ('fb_id'), (p1_id))
+        replace('player', ('fb_id'), (p2_id))
+
         data['status'] = SUCCESS
-        g.db.execute('insert into game (p1_id, p2_id) \
-            values (?, ?)', [p1_id, p2_id])
-        g.db.commit()
-        data['game_id'] = g.db.lastrowid
-	return jsonify(data)
+        fields = ('player1_id', 'player2_id')
+        values = (p1_id, p2_id)
+        id = replace('game', fields, values)
+        data['game_id'] = id
+    return jsonify(data=data)
 
 @app.route('/list_games/<player_id>/')
 def list_games(player_id):
     """
     List games available for a player
     """
-    games = query_db('select * from games where p1_id=? OR p2_id=?',
-                [player_id, played_id])
+    games = query_db('select * from game where player1_id=? OR player2_id=?',
+                [player_id, player_id])
     data = {}
     data['games'] = games
     return jsonify(data)
@@ -167,4 +186,4 @@ def create_move(game_id, player_id, move_type, upload_image_url, label):
     
 if __name__ == '__main__':
 	init_db()
-	app.run(host='0.0.0.0', port=9000)
+	app.run(debug=DEBUG, host='0.0.0.0', port=9000)
