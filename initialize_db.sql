@@ -25,6 +25,7 @@ create table moves(
   	move_type text default 'U',
 	img_url text,
 	label text unique,
+    time_updated datetime,
 	result integer,
 	FOREIGN KEY(game_id) references game(id),
 	FOREIGN KEY(player_id) references players(fb_id)

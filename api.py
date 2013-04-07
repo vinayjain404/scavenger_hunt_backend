@@ -368,8 +368,9 @@ def create_move(game_id, player_id, move_type, upload_image_url, label):
     """
     Add the current move to the move db
     """
-    fields = ['game_id', 'player_id', 'move_type', 'img_url', 'label']
-    values = [game_id, played_id, move_type, upload_image_url, label]
+    cur_time = datetime.now()
+    fields = ['game_id', 'player_id', 'move_type', 'img_url', 'label', 'time_updated']
+    values = [game_id, played_id, move_type, upload_image_url, label, cur_time]
     id = insert('move', fields, values)
     print "Added a new move: %s" %id
     return id
