@@ -368,7 +368,8 @@ def match_image_to_turn(image, game_id):
         print "Actual labels: %s" %actual_labels
         print "Expected labels: %s" %expected_label
         print "Result for the image match is: %s" %result
-        return result
+        if result:
+            return result
 
     # result method
     response = api.result(qid)
