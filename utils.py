@@ -1,6 +1,6 @@
 import uuid
 
-def create_unique_label(label):
+def create_unique_label():
     """
     Create a unique label.
     For now we should create a unique label based on UUID

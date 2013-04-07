@@ -57,10 +57,11 @@ def replace(table, fields, values):
 def update(table, fields, values, id):
     # g.db is the database connection
     cur = g.db.cursor()
-    query = 'UPDATE INTO %s (%s) VALUES (%s) WHERE id=?' % (
+    clause = ' = ?, '.join(fields)
+    clause = "%s = ?" %clause
+    query = 'UPDATE %s set %s WHERE id=?' % (
         table,
-        ', '.join(fields),
-        ', '.join(['?'] * len(values))
+        clause
     )
     print "Executing query: %s, values: %s and id: %s" %(query, values, id)
     values.append(id)
@@ -157,7 +158,8 @@ def upload_turn():
     label = utils.create_unique_label()
 
     upload_image_url = get_image_url_from_imgur(upload_image)
-    player_number = which_player(player_id) # detect player 1 or 2
+    print "Image from imgur upload: %s" %upload_image_url
+    player_number = which_player(game_id, player_id) # detect player 1 or 2
 
     move_type = 'U'
 
@@ -171,6 +173,8 @@ def upload_turn():
     # Save match as the next turn type
     save_turn(game_id, 'M')
 
+    return jsonify({"status": SUCCESS})
+
 @app.route('/match_turn/', methods = ['POST'])
 def match_turn():
     """
@@ -183,10 +187,10 @@ def match_turn():
     label = utils.create_unique_label()
 
     match_image_url = get_image_url_from_imgur(match_image)
-    player_number = which_player(player_id) # detect player 1 or 2
+    player_number = which_player(game_id, player_id) # detect player 1 or 2
 
     move_type = 'M'
-    result = match_image_to_turn(match_image, label, game_id)
+    result = match_image_to_turn(match_image, game_id)
     remove_image_from_training_set(game_id)
 
     if not result:
@@ -202,6 +206,8 @@ def match_turn():
     # Save next turn type as upload
     save_turn(game_id, 'U')
 
+    return jsonify({"status": SUCCESS})
+
 def save_turn(game_id, move_type):
     """
     Saves the current turn type for a given game id and turn type
@@ -215,7 +221,7 @@ def which_player(game_id, player_id):
     """
     Returns if player 1 or 2 is the player for the given game
     """
-    game = query_db('select * from games where id=?', [game_id])
+    game = query_db('select * from game where id=?', [game_id], one=True)
 
     if game['player1_id'] == player_id:
         return 1
@@ -235,7 +241,7 @@ def update_results(game_id, loser_number):
     else:
         winner_player = 1
 
-    game = query_db('select * from games where id=?', [game_id])
+    game = query_db('select * from game where id=?', [game_id], one=True)
     loser_player_id = 'player%d_id' %loser_number
     winner_player_id = 'player%d_id' %winner_player
     
@@ -246,7 +252,7 @@ def update_results(game_id, loser_number):
     update('game', fields, values, game_id)
 
     # update winner and loser in the players table
-    player = query_db('select * from player where id=?', [winner_player_id])
+    player = query_db('select * from player where id=?', [winner_player_id], one=True)
     current_games_played = player['games_played']
     current_games_won = player['games_won']
     fields = ['games_played', 'games_won']
@@ -254,7 +260,7 @@ def update_results(game_id, loser_number):
     update('player', fields, values, winner_player_id)
 
     # update loser in the players table
-    player = query_db('select * from player where id=?', [loser_player_id])
+    player = query_db('select * from player where id=?', [loser_player_id], one=True)
     current_games_played = player['games_played']
     fields = ['games_played']
     values = [current_games_played+1]
@@ -264,7 +270,7 @@ def increment_player_missed_count(game_id, player_number):
     """
     Increment player missed count
     """
-    game = query_db('select * from games where id=?', [game_id])
+    game = query_db('select * from game where id=?', [game_id], one=True)
     player_missed_count_field = 'player%d_misses' %player_number
     new_player_count = game[player_missed_count_field] + 1
 
@@ -284,20 +290,28 @@ def get_image_url_from_imgur(base64_image):
     params['image'] = base64_image
     params_encoded = urllib.urlencode(params)
     url = settings.IMGUR_URL
-    request_object = urllib2.Request(url, params_encoded, headers)
-    response = urllib2.urlopen(request_object)
-    resp = response.read()
-    data = json.loads(resp)
-    if data['status'] != 200:
+    print "url: %s" %url
+    print "params: %s" %params
+    print "headers: %s" %headers
+    try:
+        request_object = urllib2.Request(url, params_encoded, headers)
+        response = urllib2.urlopen(request_object)
+        resp = response.read()
+        data = json.loads(resp)
+
+        if data['status'] != 200:
+            return None
+        else:
+            return data['data']['link']
+    except Exception as ex:
+        print "Exception raised for get image urls from imgur %s" %str(ex)
         return None
-    else:
-        return data['data']['link']
 
 def swap_turn(game_id, player_number):
     """
     Swap the player turn for the given game
     """
-    game = query_db('select * from games where id=?', [game_id])
+    game = query_db('select * from game where id=?', [game_id], one=True)
 
     if player_number == 1:
         next_turn_player_number = 2
@@ -324,13 +338,13 @@ def match_image_to_turn(image, game_id):
     file.write(image.decode('base64'))
     file.close()
 
-    response, qid = self.api.query(filename)
+    response, qid = api.query(filename)
     
     # update method
-    result = self.api.update()
+    result = api.update()
     
     # result method
-    response = self.api.result(qid)
+    response = api.result(qid)
     data = response['data']
 
     if 'results' in data: 
@@ -338,7 +352,7 @@ def match_image_to_turn(image, game_id):
     else:
         return False
     
-    game = query_db('select * from games where id=?', [game_id])
+    game = query_db('select * from game where id=?', [game_id], one=True)
     expected_label = game['label']
 
     return expected_label in actual_labels
@@ -365,9 +379,9 @@ def remove_image_from_training_set(game_id):
     """
     api = Api(settings.IQE_KEY, settings.IQE_SECRET)
 
-    game = query_db('select * from games where id=?',
-                [game_id])
-    id = game['iq_image_id ']
+    game = query_db('select * from game where id=?',
+                [game_id], one=True)
+    id = game['iq_image_id']
     response = api.objects.delete(id)
     print "Deleting training set image with id: %s and response: %s" %(id, response)
 
@@ -380,14 +394,14 @@ def update_game_with_image_upload(image_url, game_id, player_id, label, iq_image
     values = [image_url, label, cur_time, iq_image_id]
     update('game', fields, values, game_id)
 
-def create_move(game_id, player_id, move_type, upload_image_url, label):
+def create_move(game_id, player_id, move_type, upload_image_url, label, move_result):
     """
     Add the current move to the move db
     """
     cur_time = int(time.time())
-    fields = ['game_id', 'player_id', 'move_type', 'img_url', 'label', 'time_updated']
-    values = [game_id, played_id, move_type, upload_image_url, label, cur_time]
-    id = insert('move', fields, values)
+    fields = ['game_id', 'player_id', 'move_type', 'img_url', 'label', 'result', 'time_updated']
+    values = [game_id, player_id, move_type, upload_image_url, label, move_result, cur_time]
+    id = insert('moves', fields, values)
     print "Added a new move: %s" %id
     return id
 
