@@ -103,28 +103,50 @@ def play_turn():
     player_id = request.form.get('player_id')
     match_image_url = request.form.get('match_image_url')
     upload_image_url = request.form.get('upload_image_url')
-    result = None
+    move_result = 0 #default it to false
 
     if not match_image_url:
         move_type = 'U'
         # figure out if its first turn if no match image is passed
         add_image_to_training_set(upload_image_url)
+        update_game_with_image_upload(upload_image_url, game_id, player_id)
     else:
         move_type = 'M'
         result = match_image_to_turn(match_image_url, game_id)
+        remove_image_from_training_set(game_id)
         if not result:
             increment_player_missed_count(player_id)
         move_result = 1 if result else 0
         add_image_to_training_set(upload_image_url)
+        update_game_with_image_upload(upload_image_url, game_id, player_id)
 
     create_move(game_id, player_id, move_type, upload_image_url, label, move_result)
     
+def remove_image_from_training_set(game_id):
+    """
+    Remove the image from the training set via Iqengines API
+    """
+    pass
+
+def update_game_with_image_upload(image_url, game_id, player_id, label):
+    """
+    Update the game db with image url, label and flip the active player turn
+    """
+	g.db.execute('update game set img_url = ?, label = ? where id = ?',
+		[
+            image_url,
+            label,
+            game_id
+        ])
+	g.db.commit()
+    return g.db.lastrowid
+
 def match_image_to_turn(image_url):
     """
     Match the image to the given image in the games last played image section
     returns True or False
     """
-    pass
+    return True
 
 def add_image_to_training_set(image_url):
     """
@@ -139,6 +161,8 @@ def create_move(game_id, player_id, move_type, upload_image_url, label)
     g.db.execute('insert into move (game_id, player_id, move_type, img_url, label) \
         values (?, ?, ?, ?, ?)', [game_id, played_id, move_type, upload_image_url, label])
     g.db.commit()
+    print "Added a new move: %s" %g.db.lastrowid
+    return g.db.lastrowid
     
 if __name__ == '__main__':
 	init_db()
