@@ -302,8 +302,7 @@ def match_image_to_turn(image, game_id):
     filename = "/tmp/%s" %utils.create_unique_label()
     file = open(filename, "w")
 
-    # TODO (vinayjain) Decode the base64 image into binary
-    file.write(image)
+    file.write(image.decode('base64'))
     file.close()
 
     response, qid = self.api.query(filename)
@@ -334,8 +333,7 @@ def add_image_to_training_set(image, label):
     filename = "/tmp/%s" %label
     file = open(filename, "w")
 
-    # TODO (vinayjain) Decode the base64 image into binary
-    file.write(image)
+    file.write(image.decode('base64'))
     file.close()
 
     response = api.objects.create(name=label, images=[filename])
