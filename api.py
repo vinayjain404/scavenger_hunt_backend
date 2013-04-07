@@ -157,10 +157,8 @@ def play_turn():
 
     label = utils.create_unique_label()
     if not match_image_url:
-        move_type = 'U'
         # figure out if its first turn if no match image is passed
-        add_image_to_training_set(upload_image_url)
-        update_game_with_image_upload(upload_image_url, game_id, player_id, label)
+        move_type = 'U'
     else:
         move_type = 'M'
         result = match_image_to_turn(match_image_url, game_id)
@@ -168,9 +166,9 @@ def play_turn():
         if not result:
             increment_player_missed_count(player_id)
         move_result = 1 if result else 0
-        add_image_to_training_set(upload_image_url)
-        update_game_with_image_upload(upload_image_url, game_id, player_id, label)
 
+    add_image_to_training_set(upload_image_url)
+    update_game_with_image_upload(upload_image_url, game_id, player_id, label)
     create_move(game_id, player_id, move_type, upload_image_url, label, move_result)
     
 def remove_image_from_training_set(game_id):

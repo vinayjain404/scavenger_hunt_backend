@@ -30,4 +30,4 @@ pip-log.txt
 *.sw[po]
 
 # sqlite db
-fav_locations.db
+scavenger_hunt.db

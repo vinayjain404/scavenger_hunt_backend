@@ -1,17 +1,18 @@
 create table game(
-	id integer primary key autoincrement,
-	player1_id text,
-	player2_id text,
-	player_turn text
-	img_url text,
-	label text unique,
-	player1_misses integer,
-	player2_misses integer,
-	winner text,
-	FOREIGN KEY(player1_id) references players(fb_id),
-	FOREIGN KEY(player2_id) references players(fb_id),
-	FOREIGN KEY(winner) references players(fb_id),
-	FOREIGN KEY(player_turn) references players(fb_id)
+    id integer primary key autoincrement,
+    player1_id text,
+    player2_id text,
+    player_turn text
+    img_url text,
+    label text unique,
+    last_activity datetime,
+    player1_misses integer,
+    player2_misses integer,
+    winner text,
+    FOREIGN KEY(player1_id) references players(fb_id),
+    FOREIGN KEY(player2_id) references players(fb_id),
+    FOREIGN KEY(winner) references players(fb_id),
+    FOREIGN KEY(player_turn) references players(fb_id)
 );
 
 
