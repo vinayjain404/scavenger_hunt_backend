@@ -19,10 +19,10 @@ create table moves(
   	id integer primary key autoincrement,
   	game_id integer, 
         player_id text,
-  	move_type text default 'upload',
+  	move_type text default 'U',
 	img_url text,
 	label text unique,
-	result text default 'N',
+	result text,
 	FOREIGN KEY(game_id) references game(id),
 	FOREIGN KEY(player_id) references players(fb_id)
 );
