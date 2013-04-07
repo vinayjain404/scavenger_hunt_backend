@@ -47,8 +47,8 @@ def create_game():
     API endpoint to create a new game.
     """
     data = {}
-    p1_id = request.form.get('source_id')
-    p2_id = request.form.get('opponent_id')
+    p1_id = request.form.get('p1_id')
+    p2_id = request.form.get('p2_id')
     if not p1_id or not p2_id:
         data['status'] = FAIL
     else:
@@ -68,7 +68,7 @@ def list_games(player_id):
                 [player_id, played_id])
     data = {}
     data['games'] = games
-	return jsonify(data)
+    return jsonify(data)
 
 @app.route('/play_game/', methods = ['POST'])
 def play_game():
@@ -87,7 +87,7 @@ def play_game():
         data['status'] = SUCCESS
         
     data['game'] = game
-	return jsonify(data)
+    return jsonify(data)
 
 @app.route('/play_turn/', methods = ['POST'])
 def play_turn():
@@ -133,13 +133,13 @@ def update_game_with_image_upload(image_url, game_id, player_id, label):
     """
     Update the game db with image url, label and flip the active player turn
     """
-	g.db.execute('update game set img_url = ?, label = ? where id = ?',
+    g.db.execute('update game set img_url = ?, label = ? where id = ?',
 		[
             image_url,
             label,
             game_id
         ])
-	g.db.commit()
+    g.db.commit()
     return g.db.lastrowid
 
 def match_image_to_turn(image_url):
@@ -155,7 +155,7 @@ def add_image_to_training_set(image_url):
     """
     pass
  
-def create_move(game_id, player_id, move_type, upload_image_url, label)
+def create_move(game_id, player_id, move_type, upload_image_url, label):
     """
     Add the current move to the move db
     """
