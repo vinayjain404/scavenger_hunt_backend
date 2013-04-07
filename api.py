@@ -34,6 +34,7 @@ def init_db():
 		cur.executescript(query_file.read())
 
 def query_db(query, args=(), one=False):
+    print "Executing query: %s, args: %s" %(query, args)
     cur = g.db.execute(query, args)
     rv = [dict((cur.description[idx][0], value)
                for idx, value in enumerate(row)) for row in cur.fetchall()]
@@ -136,8 +137,8 @@ def updated_games(player_id, timestamp):
     """
     List games available for a player
     """
-    games = query_db('select * from game where player1_id=? OR player2_id=? and img_url NOT NULL and last_updated > ?',
-                [player_id, player_id, timestamp])
+    games = query_db('select * from game where last_updated > ? AND img_url NOT NULL AND (player1_id=? OR player2_id=?)',
+                [int(timestamp), player_id, player_id])
     data = {}
 
     data['games'] = games
