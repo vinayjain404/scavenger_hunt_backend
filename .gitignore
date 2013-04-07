@@ -31,3 +31,6 @@ pip-log.txt
 
 # sqlite db
 scavenger_hunt.db
+
+# setting.py
+settings.py
