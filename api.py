@@ -122,7 +122,7 @@ def list_games(player_id):
     """
     List games available for a player
     """
-    games = query_db('select * from game where player1_id=? OR player2_id=? and img_url NOT NULL',
+    games = query_db('select * from game where player1_id=? OR player2_id=? and img_url not NULL',
                 [player_id, player_id])
     data = {}
 
@@ -198,8 +198,8 @@ def match_turn():
     if not result:
         count = increment_player_missed_count(game_id, player_number)
 
-    if count == settings.MAX_MISSES:
-        update_results(game_id, player_number)
+        if count == settings.MAX_MISSES:
+            update_results(game_id, player_number)
 
     move_result = 1 if result else 0
           
@@ -356,19 +356,19 @@ def match_image_to_turn(image, game_id):
         traceback.print_exc()
         return False
 
+    data = result['data']
     if "results" in data:
+        print data['results']
         if isinstance(data['results'], list):
-            actual_labels = [result['labels'] for result in data['results']]
+            actual_labels = [result['qid_data']['labels'] for result in data['results']]
             result = expected_label in actual_labels
         else:
-            actual_labels = data['results']['labels']
+            actual_labels = data['results']['qid_data']['labels']
             result = expected_label == actual_labels
         print "Actual labels: %s" %actual_labels
         print "Expected labels: %s" %expected_label
         print "Result for the image match is: %s" %result
         return result
-    else:
-        return False
 
     # result method
     response = api.result(qid)
