@@ -182,7 +182,6 @@ def turn():
             update_results(game_id, player_number)
             
         move_result = 1 if result else 0
-         
           
     iq_image_id = add_image_to_training_set(upload_image, label)
     update_game_with_image_upload(upload_image_url, game_id, player_id, label, iq_image_id)
@@ -205,26 +204,41 @@ def which_player(game_id, player_id):
         print "Player: %s is not a valid player for game: %s" %(player_id, game_id)
         return None
 
-def update_results(game_id, player_number):
+def update_results(game_id, loser_number):
     """
     Update the winner of the game
     The winner is decided when one of the player gets MAX_MISSES and he loses.
     """
-    if player_number == 1:
+    if loser_number == 1:
         winner_player = 2
     else:
         winner_player = 1
 
     game = query_db('select * from games where id=?', [game_id])
-    loses_player_id = 'player%d_id' %player_number
+    loser_player_id = 'player%d_id' %loser_number
     winner_player_id = 'player%d_id' %winner_player
     
+    # update winner in the game db
     cur_time = datetime.now()
     fields = ['winner']
     values = [winner_player_id]
     update('game', fields, values, game_id)
 
     # update winner and loser in the players table
+    player = query_db('select * from player where id=?', [winner_player_id])
+    current_games_played = player['games_played']
+    current_games_won = player['games_won']
+    fields = ['games_played', 'games_won']
+    values = [current_games_played+1, current_games_won+1]
+    update('player', fields, values, winner_player_id)
+
+    # update loser in the players table
+    player = query_db('select * from player where id=?', [loser_player_id])
+    current_games_played = player['games_played']
+    fields = ['games_played']
+    values = [current_games_played+1]
+    update('player', fields, values, loser_player_id)
+
 def increment_player_missed_count(game_id, player_number):
     """
     Increment player missed count
